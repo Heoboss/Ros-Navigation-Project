@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Search</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            var socket = io();
+        
+            // 음성 인식 버튼 클릭 시 이벤트
+            document.getElementById("voiceButton").addEventListener("click", (event) => {
+                event.preventDefault();
+                socket.emit('voice_recognition', { message: '음성인식' });
+            });
+        
+            // 서버에서 음성 인식이 실제로 시작되었을 때
+            socket.on('listening_started', () => {
+                showRecognitionModal();  // 음성 인식 중 메시지 표시
+            });
+        
+            // 음성 인식이 끝나면 웹페이지에서 메시지를 숨김
+            socket.on('voice_response', (data) => {
+                hideRecognitionModal();  // 메시지 숨김
+                document.getElementById('search').value = data.message;
+                document.forms[0].submit();  // 음성으로 인식된 텍스트로 자동 검색 제출
+            });
+        });
+
+        let selectedBookName = null;
+        let selectedBookBarcode = null;
+        let selectedSeatNumber = null;
+
+        function showRecognitionModal() {
+            var recognitionModal = document.createElement('div');
+            recognitionModal.id = 'recognitionModal';
+            recognitionModal.style.position = 'fixed';
+            recognitionModal.style.top = '50%';
+            recognitionModal.style.left = '50%';
+            recognitionModal.style.transform = 'translate(-50%, -50%)';
+            recognitionModal.style.padding = '20px';
+            recognitionModal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            recognitionModal.style.color = 'white';
+            recognitionModal.style.fontSize = '18px';
+            recognitionModal.style.zIndex = '1000';
+            recognitionModal.innerText = '음성 인식 중...';
+            document.body.appendChild(recognitionModal);
+        }
+        
+        // 음성 인식 중 메시지 숨김 함수
+        function hideRecognitionModal() {
+            var recognitionModal = document.getElementById('recognitionModal');
+            if (recognitionModal) {
+                recognitionModal.remove();
+            }
+        }
+
+        function selectBook(name, barcode) {
+            selectedBookName = name;
+            selectedBookBarcode = barcode;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/check_book_status', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onload = function() {
+                var response = JSON.parse(xhr.responseText);
+                showModal(name, barcode, response.status);
+            };
+            xhr.send(JSON.stringify({ name: name, barcode: barcode }));
+        }
+
+        function showModal(name, barcode, status) {
+            console.log(`Book name: ${name}, Barcode: ${barcode}, Status: ${status}`);
+            var modal = document.getElementById("myModal");
+            var modalText = document.getElementById("modal-text");
+            var modalButtons = document.getElementById("modal-buttons");
+
+            modalText.innerText = `${name}`;
+            modalButtons.innerHTML = '';
+
+            if (status === '대출가능합니다.') {
+                modalButtons.innerHTML = `
+                    <button id="borrow-button">대출하기</button>
+                    <button id="read-here-button">여기서 읽기</button>
+                `;
+                document.getElementById('borrow-button').onclick = function() {
+                    modal.style.display = "none";
+                    showLoginModal(name, barcode);
+                };
+                document.getElementById('read-here-button').onclick = function() {
+                    modal.style.display = "none";
+                    showSeatingChart();
+                };
+            } else if (status === '대출불가능합니다.') {
+                modalText.innerText = '대출이 불가능합니다.';
+                modalButtons.innerHTML = `<button onclick="closeModal('myModal')">확인</button>`;
+            }
+
+            modal.style.display = "block";
+        }
+
+        function closeModal(modalId) {
+            var modal = document.getElementById(modalId);
+            modal.style.display = "none";
+        }
+
+        function showLoginModal(name, barcode) {
+            var loginModal = document.getElementById("loginModal");
+
+            loginModal.dataset.bookName = name;
+            loginModal.dataset.bookBarcode = barcode;
+            loginModal.style.display = "block";
+        }
+
+        function validateLogin() {
+            var userId = document.getElementById('user_id').value;
+            var password = document.getElementById('password').value;
+
+            var loginModal = document.getElementById("loginModal");
+            var bookName = loginModal.dataset.bookName;
+            var bookBarcode = loginModal.dataset.bookBarcode;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/validate_login', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onload = function() {
+                var response = JSON.parse(xhr.responseText);
+                var resultModal = document.getElementById("resultModal");
+                var resultText = document.getElementById("result-modal-text");
+                var retryLoginButton = document.getElementById("retry-login-button");
+                var confirmButton = document.getElementById("confirm-button");
+
+                if (xhr.status === 200) {
+                    if (response.status === 'exceed') {
+                        resultText.innerText = '현재 대출 권수 초과입니다.';
+                        confirmButton.style.display = "block";
+                        retryLoginButton.style.display = "none";
+                    } else if (response.status === 'success') {
+                        var x = response.borrowed_books;
+                        var y = 5 - x;
+                        resultText.innerText = `대출되었습니다! 현재 나의 대출 권수는 ${x}권이고, 남은 대출 권수는 ${y}권입니다.`;
+                        confirmButton.style.display = "block";
+                        retryLoginButton.style.display = "none";
+                        updateBookHere(bookName, bookBarcode);
+                        insertBorrowedBook(userId, bookName);
+                        updateGo(bookName, bookBarcode);
+                        updateRocaValue(1);
+                    } else {
+                        resultText.innerText = '아이디가 존재하지 않습니다!';
+                        retryLoginButton.style.display = "block";
+                        confirmButton.style.display = "none";
+                    }
+                } else {
+                    resultText.innerText = '오류가 발생했습니다.';
+                    retryLoginButton.style.display = "none";
+                    confirmButton.style.display = "none";
+                }
+
+                resultModal.style.display = "block";
+                loginModal.style.display = "none";
+            };
+            xhr.send(JSON.stringify({ user_id: userId, password: password }));
+        }
+        function updateGo(name, barcode) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/update_go', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    console.log('UpdateGo successful');
+                } else {
+                    console.error('Error updating Go');
+                }
+            };
+            xhr.send(JSON.stringify({ name: name, barcode: barcode }));
+        }
+
+        function insertBorrowedBook(userId, bookName) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/insert_borrowed_book', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.send(JSON.stringify({ user_id: userId, book_title: bookName, borrowed_date: new Date().toISOString().split('T')[0] }));
+        }
+
+        function updateBookHere(name, barcode) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/update_book_here', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    document.querySelector(`button[data-barcode="${barcode}"]`).closest('tr').querySelector('td:nth-child(2)').innerText = '대출불가능합니다.';
+                } else {
+                    console.error('Error updating book status');
+                }
+            };
+            xhr.send(JSON.stringify({ book_name: name, book_barcode: barcode, status: '대출불가능합니다.' }));
+        }
+
+        function showSeatingChart() {
+            var seatingChartModal = document.getElementById("seatingChartModal");
+            var seatingChart = document.getElementById("seatingChart");
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/seating_chart', true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var seats = JSON.parse(xhr.responseText);
+                    seatingChart.innerHTML = '';
+
+                    var maxColNum = Math.max(...seats.map(seat => seat.col_num));
+                    seatingChart.style.gridTemplateColumns = `repeat(${maxColNum}, 60px)`;
+
+                    seats.forEach(function(seat, index) {
+                        var seatDiv = document.createElement('div');
+                        seatDiv.classList.add('seat');
+                        if (seat.status === 'X') {
+                            seatDiv.classList.add('status-x');
+                            seatDiv.textContent = 'X';
+                        } else {
+                            seatDiv.classList.add(seat.status);
+                            seatDiv.textContent = seat.row_num + '-' + seat.col_num;
+                        }
+                        seatDiv.dataset.seatId = seat.seat_id;
+
+                        seatDiv.onclick = function() {
+                            if (seatDiv.classList.contains('이용가능')) {
+                                selectedSeatNumber = seatDiv.textContent;
+                                updateSeatStatus(seat.seat_id, 'X');
+                                seatDiv.classList.remove('이용가능');
+                                seatDiv.classList.add('occupied');
+                                seatDiv.textContent = 'X';
+                            }
+                        };
+
+                        seatingChart.appendChild(seatDiv);
+
+                        if ((index + 1) % (maxColNum * 2) === 0) {
+                            var rowGap = document.createElement('div');
+                            rowGap.classList.add('row-gap');
+                            rowGap.style.gridColumn = `span ${maxColNum}`;
+                            seatingChart.appendChild(rowGap);
+                        }
+                    });
+                }
+            };
+            xhr.send();
+
+            seatingChartModal.style.display = "block";
+        }
+
+        function updateSeatStatus(seatId, status) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/update_seat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    showConfirmationModal();
+                }
+            };
+            xhr.send(JSON.stringify({ seat_id: seatId, status: status, book_name: selectedBookName, book_barcode: selectedBookBarcode }));
+            updateBookHere(selectedBookName, selectedBookBarcode);
+            updateGo(selectedBookName, selectedBookBarcode);
+            updateRocaValue(2);
+        }
+
+        function showConfirmationModal() {
+            var confirmationModal = document.getElementById("confirmationModal");
+            var confirmationText = document.getElementById("confirmationText");
+            confirmationText.innerText = `${selectedSeatNumber} 좌석이 선택되었습니다.`;
+            confirmationModal.style.display = "block";
+        }
+
+        function closeConfirmationModal() {
+            var confirmationModal = document.getElementById("confirmationModal");
+            confirmationModal.style.display = "none";
+            closeModal('seatingChartModal');
+        }
+
+        function updateRocaValue(value) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/update_roca', true);
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    console.log(`roca 값이 ${value}로 업데이트되었습니다.`);
+                } else {
+                    console.error('roca 업데이트 오류');
+                }
+            };
+            xhr.send(JSON.stringify({ value: value }));
+        }
+        
+
+        document.getElementById('search').addEventListener('input', function() {
+            var query = this.value;
+            if (query.length < 2) {
+                document.getElementById('suggestions').innerHTML = '';
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/autocomplete?query=' + encodeURIComponent(query), true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var results = JSON.parse(xhr.responseText);
+                    var suggestions = document.getElementById('suggestions');
+                    suggestions.innerHTML = '';
+                    results.forEach(function(name) {
+                        var div = document.createElement('div');
+                        div.textContent = name;
+                        div.addEventListener('click', function() {
+                            document.getElementById('search').value = name;
+                            suggestions.innerHTML = '';
+                        });
+                        suggestions.appendChild(div);
+                    });
+                }
+            };
+            xhr.send();
+        });
+
+    </script>
+    <style>
+        #suggestions {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            background-color: white;
+            width: 100%;
+        }
+        #suggestions div {
+            padding: 8px;
+            cursor: pointer;
+        }
+        #suggestions div:hover {
+            background-color: #f0f0f0;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 40%;
+            height: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-buttons {
+            text-align: center;
+        }
+        .modal-buttons button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        .seat-container {
+            display: grid;
+            grid-template-columns: repeat(4, 30px);
+            gap: 10px;
+            max-width :90%;
+            margin : 0 auto;
+        }
+        .seat {
+            width: 60px;
+            height: 60px;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .available {
+            background-color: green;
+            color: white;
+        }
+        .reserved {
+            background-color: red;
+            color: white;
+        }
+        .occupied {
+            background-color: white;
+            color: black;
+            cursor: not-allowed;
+        }
+        .status-x {
+            background-color: white;
+            color: black;
+            cursor: not-allowed;
+        }
+        .row-gap {
+            grid-column: span 5;
+            height: 20px;
+        }
+        .available-book {
+            background-color: green;
+            color: white;
+        }
+        .unavailable-book {
+            background-color: red;
+            color: white;
+        }
+        .book-image {
+            width: 100px;
+            height: auto;
+            margin-bottom: 5px; /* 이미지 아래의 여백을 줄임 */
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 한 줄에 2개의 항목을 표시 */
+            gap: 10px; /* 그리드 항목 사이의 간격을 10px로 조정 */
+            width: 30%; /* 그리드 컨테이너의 너비를 50%로 설정 */
+            margin-left: 0; /* 왼쪽 정렬 */
+        }
+        
+        .grid-item {
+            position: relative; /* 오버레이 위치를 위해 relative 설정 */
+            text-align: center;
+            border: 1px solid #ccc;
+            padding: 5px;
+            padding-bottom: 10px; /* 하단 패딩을 줄임 */
+            box-sizing: border-box;
+            width: 100%; /* 그리드 아이템의 너비를 100%로 설정 */
+        }
+
+        .grid-item .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.5); /* 반투명 빨간색 */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            visibility: hidden; /* 기본적으로 숨김 처리 */
+        }
+
+        .grid-item.unavailable .overlay {
+            visibility: visible; /* 대출불가능할 때 오버레이를 표시 */
+        }
+
+        .grid-item button:disabled {
+            background-color: gray;
+            color: white;
+            cursor: not-allowed;
+        }
+
+        .grid-item hr {
+            width: 80%; /* 가로선의 너비 */
+            margin: 5px auto; /* 가로선의 상하 여백을 줄임 */
+            border: 0;
+            border-top: 1px solid #ccc; /* 가로선의 스타일 */
+        }
+        
+        .grid-item p {
+            margin: 5px 0; /* 텍스트의 상하 마진을 줄임 */
+            font-size: 14px; /* 글꼴 크기 조정 */
+        }
+        
+    </style>
+</head>
+<body>
+    <h1>Search Books</h1>
+    <form method="post" action="/search" class="search-container">
+        <input type="text" name="query" id="search" placeholder="Enter search term" autocomplete="off">
+        <div id="suggestions"></div>
+        <label for="view_type">정렬 선택:</label>
+        <select name="view_type" id="view_type">
+            <option value="list">제목 정렬</option>
+            <option value="grid" selected>그림 정렬</option>
+        </select>
+        <button type="submit">Search</button>
+        <button type="button" id="voiceButton">음성으로 인식</button>
+    </form>
+    {% if results %}
+        <h2>Search Results for "{{ query }}"</h2>
+        
+        {% if view_type == 'list' %}
+            <table border="1">
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Select</th>
+                </tr>
+                {% for result in results %}
+                <tr>
+                    <td>{{ result[0] }}</td>
+                    <td class="{% if result[3] == '대출가능합니다.' %}available-book{% elif result[3] == '대출불가능합니다.' %}unavailable-book{% endif %}">{{ result[3] }}</td>
+                    <td><button type="button" data-barcode="{{ result[1] }}" onclick="selectBook('{{ result[0] }}', this.getAttribute('data-barcode'))">Select</button></td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% elif view_type == 'grid' %}
+            <div class="grid-container">
+                {% for result in results %}
+                    <div class="grid-item {% if result[3] == '대출불가능합니다.' %}unavailable{% endif %}">
+                        {% if result[4] %}
+                            <img src="data:image/jpeg;base64,{{ result[4]|b64encode }}" alt="Book Image" class="book-image">
+                        {% else %}
+                            <img src="/static/placeholder.jpg" alt="No Image" class="book-image">
+                        {% endif %}
+                        {% if result[3] == '대출불가능합니다.' %}
+                            <div class="overlay">대출불가능</div>
+                        {% endif %}
+                        <hr>
+                        <p>{{ result[0] }}</p>
+                        <button type="button" data-barcode="{{ result[1] }}" onclick="selectBook('{{ result[0] }}', this.getAttribute('data-barcode'))" {% if result[3] == '대출불가능합니다.' %}disabled{% endif %}>Select</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+    {% endif %}
+
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('myModal')">&times;</span>
+            <p id="modal-text"></p>
+            <div id="modal-buttons" class="modal-buttons"></div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('loginModal')">&times;</span>
+            <h2>로그인하세요</h2>
+            <form id="loginForm">
+                <label for="user_id">아이디:</label>
+                <input type="text" id="user_id" name="user_id" required><br><br>
+                <label for="password">비밀번호:</label>
+                <input type="password" id="password" name="password" required><br><br>
+                <button type="button" onclick="validateLogin()">로그인</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('resultModal')">&times;</span>
+            <p id="result-modal-text"></p>
+            <div class="modal-buttons">
+                <button type="button" id="confirm-button" style="display: none;" onclick="closeModal('resultModal')">확인</button>
+                <button type="button" id="retry-login-button" style="display: none;" onclick="retryLogin()">로그인 다시하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seating Chart Modal -->
+    <div id="seatingChartModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('seatingChartModal')">&times;</span>
+            <h2>Seating Chart</h2>
+            <div id="seatingChart" class="seat-container"></div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmationModal()">&times;</span>
+            <p id="confirmationText">좌석이 확정되었습니다.</p>
+            <div class="modal-buttons">
+                <button type="button" onclick="closeConfirmationModal()">확인</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
