@@ -1,0 +1,14 @@
+TEBLocalPlannerROS:
+  max_vel_x: 1.0
+  max_vel_y: 1.0
+  max_vel_theta: 0.5
+  acc_lim_x: 2.5
+  acc_lim_y: 2.5
+  acc_lim_theta: 2.5
+  holonomic_robot: true
+  min_obstacle_dist: 0.2
+  costmap_obstacles_behind_robot_dist: 1.0
+  footprint_model:
+    type: "polygon"
+    vertices: [[-0.3, -0.3], [0.3, -0.3], [0.3, 0.3], [-0.3, 0.3]]
+

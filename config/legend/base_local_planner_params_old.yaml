@@ -1,0 +1,20 @@
+
+DWAPlannerROS:
+  max_vel_x: 1  # 최대 직진 속도
+  min_vel_x: 0.0  # 최소 직진 속도
+  max_vel_y: 0.5  # 최대 횡이동 속도
+  min_vel_y: 0.0  # 최소 횡이동 속도
+  max_vel_theta: 1.0  # 최대 회전 속도
+  acc_lim_x: 0.5  # 직진 가속도 제한
+  acc_lim_y: 0.5  # 횡이동 가속도 제한
+  acc_lim_theta: 2.0  # 회전 가속도 제한
+  min_in_place_vel_theta: 0.3  # 회전할 때 최소 속도
+  xy_goal_tolerance: 0.2  # 목표 지점에서 허용되는 위치 오차
+  yaw_goal_tolerance: 0.1  # 목표 지점에서 허용되는 각도 오차
+  path_distance_bias: 32.0  # 경로를 따라가려고 하는 경향
+  goal_distance_bias: 24.0  # 목표를 향해 가려고 하는 경향
+  occdist_scale: 0.01  # 장애물과의 거리를 고려하는 정도
+  forward_point_distance: 0.325  # 로컬 경로를 얼마나 앞서 계획할지 결정
+  stop_time_buffer: 0.2  # 장애물과의 거리를 유지하기 위한 시간 버퍼
+  oscillation_reset_dist: 0.05  # 진동을 줄이기 위한 설정
+  pruning_plan: True  # 경로를 더 효율적으로 만들기 위한  pruning 옵션

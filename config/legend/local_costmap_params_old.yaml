@@ -1,0 +1,7 @@
+local_costmap:
+  global_frame: scanmatch_odom
+  robot_base_frame: base_link
+  update_frequency: 25.0
+  publish_frequency: 10.0
+  static_map: false
+  resolution: 0.050000 #새로 추가
