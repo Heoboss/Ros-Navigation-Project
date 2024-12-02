@@ -6,6 +6,7 @@ and Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 
 
 <h2> Hardware we used</h2>
+
 - Rplidar A1M8 - link : https://www.devicemart.co.kr/goods/view?no=1149202
 
 - Arduino Uno
