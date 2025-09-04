@@ -1,4 +1,4 @@
-# ROS를 이용한 자율 주행 로봇 내비게이션 프로젝트 🤖
+# 🤖 ROS를 이용한 자율 주행 로봇 내비게이션 프로젝트 
 
 이 프로젝트는 **ROS (Robot Operating System)**를 기반으로 실제 환경에서 로봇이 스스로 지도를 생성하고(SLAM), 지정된 목적지까지 장애물을 피해 자율 주행하는 내비게이션 시스템을 구현한 것입니다.<br/>
 
@@ -21,6 +21,12 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
   
 - linear motor (lift) - link : https://ko.aliexpress.com/item/1005005862509864.html?spm=a2g0o.order_list.order_list_main.10.21ef140fj03eFd&gatewayAdapt=glo2kor
 
+
+---
+
+## 🤖 로봇 사진
+
+<img width="1225" height="577" alt="image" src="https://github.com/user-attachments/assets/eea190bb-d866-4823-b7b0-7a8291856112" />
 
 ---
 
@@ -47,7 +53,7 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 
 ## ✨ 주요 기능
 
-* **지도 생성**: `gmapping` 패키지를 활용한 2D Occupancy Grid Map 생성
+* **지도 생성**: `hectorslam` 패키지를 활용한 2D Occupancy Grid Map 생성
 * **위치 추정**: `AMCL (Adaptive Monte Carlo Localization)`을 이용한 실시간 로봇 위치 추정
 * **경로 계획**: Global Planner (e.g., A\*)와 Local Planner (e.g., DWA)를 이용한 경로 생성
 * **시각화**: `RViz`를 통해 지도, 로봇의 위치, 센서 데이터, 경로 등을 실시간으로 시각화
@@ -69,12 +75,9 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 
 ---
 
-## ⚙️ 설치 및 실행 방법
 
-### 1. 사전 요구사항
+## 동작영상
 
-먼저 ROS Noetic과 TurtleBot3 관련 패키지를 설치해야 합니다.
+아래 이미지를 클릭하면 Youtube로 이동하여 프로젝트 동작 영상을 확인할 수 있습니다.
 
-```bash
-# ROS Noetic 설치 (공식 문서 참조)
-# ...
+[![프로젝트 동작 영상](https://img.youtube.com/vi/RS3TgxG2GQo/hqdefault.jpg)](https://youtu.be/RS3TgxG2GQo)
