@@ -67,7 +67,7 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 * **Robot Model**: Custom Robot
 
 #### ROS Packages
-* `gmapping` or `cartographer`: SLAM
+* `cartographer`: SLAM
 * `amcl`: Localization
 * `move_base`: Navigation
 * `map_server`: Map saving/loading
