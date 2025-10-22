@@ -59,7 +59,7 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 
 ---
 
-## 🛠️ 개발 환경 및 사용 기술
+## 🔨 개발 환경 및 사용 기술
 
 * **OS**: Ubuntu 20.04 LTS
 * **ROS Version**: ROS Noetic
