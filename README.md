@@ -55,6 +55,7 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 * **지도 생성**: `hectorslam` 패키지를 활용한 2D Occupancy Grid Map 생성
 * **위치 추정**: `AMCL (Adaptive Monte Carlo Localization)`을 이용한 실시간 로봇 위치 추정
 * **경로 계획**: Global Planner (e.g., A\*)와 Local Planner (e.g., DWA)를 이용한 경로 생성
+* **장애물 회피**: Rplidar A1M8 센서 데이터 기반 실시간 장애물 감지 및 회피
 * **시각화**: `RViz`를 통해 지도, 로봇의 위치, 센서 데이터, 경로 등을 실시간으로 시각화
 
 ---
@@ -63,16 +64,66 @@ Youtube link : https://www.youtube.com/@2024_final_ros_project_konkuk
 
 * **OS**: Ubuntu 20.04 LTS
 * **ROS Version**: ROS Noetic
+* **Programming Language: Python, C++
 * **Visualization**: RViz
-* **Robot Model**: Custom Robot
+* **Robot Model**: Custom Mecanum Wheel Robot
+* Sensor: Rplidar A1M8
 
 #### ROS Packages
-* `cartographer`: SLAM
+* `hector_slam`: SLAM (Simultaneous Localization and Mapping)
 * `amcl`: Localization
 * `move_base`: Navigation
 * `map_server`: Map saving/loading
+* `tf`: Coordinate frame transforms
 
 ---
+
+## 📦 패키지 구조
+```
+hector_slam_launch/
+├── launch/          # ROS launch 파일들
+│   ├── slam.launch           # SLAM 실행 launch 파일
+│   ├── navigation.launch     # Navigation 실행 launch 파일
+│   └── ...
+├── rviz_cfg/        # RViz 설정 파일들
+│   ├── slam.rviz            # SLAM 시각화 설정
+│   ├── navigation.rviz      # Navigation 시각화 설정
+│   └── ...
+├── scripts/         # Python 스크립트들
+│   ├── robot_controller.py  # 로봇 제어 스크립트
+│   └── ...
+└── maps/            # 저장된 지도 파일들
+    ├── map.yaml
+    └── map.pgm
+```
+
+### 주요 디렉토리 설명
+
+- **launch/**: SLAM, Navigation, 센서 구동 등 각 기능별 launch 파일 포함
+- **rviz_cfg/**: 각 단계별(SLAM, Navigation) RViz 시각화 설정 파일
+- **scripts/**: 로봇 제어, 센서 데이터 처리 등을 위한 Python 스크립트
+- **maps/**: `map_server`를 통해 저장된 지도 파일
+
+---
+
+## 🔧 핵심 노드 및 토픽
+### 주요 노드
+| 노드 이름 | 패키지 | 역할 |
+| :--- | :--- | :--- |
+| **hector_mapping** | hector_slam | SLAM 수행, 지도 생성 |
+| **amcl** | amcl | 파티클 필터 기반 위치 추정 |
+| **move_base** | move_base | 경로 계획 및 장애물 회피 |
+| **map_server** | map_server | 저장된 지도 로드 |
+| **rplidarNode** | rplidar_ros | Lidar 센서 데이터 수신 |
+### 주요 토픽
+| 토픽 이름 | 메시지 타입 | 설명 |
+| :--- | :--- | :--- |
+| **/scan** | sensor_msgs/LaserScan | Lidar 스캔 데이터 |
+| **/cmd_vel** | geometry_msgs/Twist | 로봇 속도 명령 |
+| **/map** | nav_msgs/OccupancyGrid | 생성된 2D 지도 |
+| **/odom** | nav_msgs/Odometry | 로봇의 오도메트리 데이터 |
+| **/move_base/goal** | move_base_msgs/MoveBaseActionGoal | Navigation 목표 위치 |
+| **/amcl_pose** | geometry_msgs/PoseWithCovarianceStamped | geometry_msgs/PoseWithCovarianceStamped |
 
 
 ## 동작영상
